@@ -1,0 +1,7 @@
+PyMuPDF
+pdfplumber
+python-docx
+Pillow
+google-genai
+python-dotenv
+tiktoken
