@@ -5,3 +5,4 @@ Pillow
 google-genai
 python-dotenv
 tiktoken
+chromadb
