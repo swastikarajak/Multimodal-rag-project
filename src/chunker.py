@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 from typing import List
 
 import tiktoken
@@ -102,22 +103,23 @@ def create_text_chunks(
     return chunks
 
 
-def chunk_document(
-    document: DocumentData
-) -> List[ChunkData]:
-    """
-    Convert a DocumentData object into searchable chunks.
-    """
-
+def chunk_document(document: DocumentData) -> List[ChunkData]:
     chunks = []
 
     chunk_number = 1
 
+    # Get document name without extension
+    source_path = Path(document.source_file)
+
+    source_name = (
+    f"{source_path.stem}_{source_path.suffix.replace('.', '')}"
+     )
+
     for page in document.pages:
 
-       
-        # 1. TEXT CHUNKS
-       
+        # ---------------------------------------------
+        # TEXT CHUNKS
+        # ---------------------------------------------
 
         text_chunks = create_text_chunks(
             page.text,
@@ -129,7 +131,7 @@ def chunk_document(
 
             chunks.append(
                 ChunkData(
-                    chunk_id=f"chunk_{chunk_number}",
+                    chunk_id=f"{source_name}_chunk_{chunk_number}",
                     source_file=document.source_file,
                     file_type=document.file_type,
                     page_number=page.page_number,
@@ -140,15 +142,16 @@ def chunk_document(
 
             chunk_number += 1
 
-        # -----------------------------
-        # 2. TABLE CHUNKS
-        # -----------------------------
+
+        # ---------------------------------------------
+        # TABLE CHUNKS
+        # ---------------------------------------------
 
         for table in page.tables:
 
             chunks.append(
                 ChunkData(
-                    chunk_id=f"chunk_{chunk_number}",
+                    chunk_id=f"{source_name}_chunk_{chunk_number}",
                     source_file=document.source_file,
                     file_type=document.file_type,
                     page_number=table.page_number,
@@ -159,19 +162,18 @@ def chunk_document(
 
             chunk_number += 1
 
-        # -----------------------------
-        # 3. IMAGE CHUNKS
-        # -----------------------------
+
+        # ---------------------------------------------
+        # IMAGE CHUNKS
+        # ---------------------------------------------
 
         for image in page.images:
 
-            # We use Gemini's description,
-            # NOT the Base64 image data.
             if image.description:
 
                 chunks.append(
                     ChunkData(
-                        chunk_id=f"chunk_{chunk_number}",
+                        chunk_id=f"{source_name}_chunk_{chunk_number}",
                         source_file=document.source_file,
                         file_type=document.file_type,
                         page_number=image.page_number,

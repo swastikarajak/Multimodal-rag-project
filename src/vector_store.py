@@ -59,13 +59,13 @@ def add_chunks_to_vector_store(
         )
 
     if chunks:
-        collection.add(
+        collection.upsert(
             ids=ids,
             documents=documents,
             embeddings=embeddings,
             metadatas=metadatas
-        )
-
+  )
+        
 
 def search_similar_chunks(
     query: str,

@@ -2,7 +2,7 @@ from src.rag_pipeline import answer_question
 
 
 def main():
-    question = "What is Machine Learning?"
+    question = "What does the image in the document contain?"
 
     result = answer_question(
         question=question,
