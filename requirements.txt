@@ -6,3 +6,6 @@ google-genai
 python-dotenv
 tiktoken
 chromadb
+fastapi
+uvicorn
+python-multipart
