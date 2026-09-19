@@ -1,11 +1,16 @@
 import "./App.css";
 import { useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 function App() {
+  // -----------------------------------
+  // FILE UPLOAD STATE
+  // -----------------------------------
+
   // Hidden file input ko control karne ke liye
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Selected files
+  // Selected/uploaded files
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // Upload status
@@ -13,16 +18,22 @@ function App() {
     Record<string, "uploading" | "ready" | "failed">
   >({});
 
-  // Chunk count returned by backend
+  // Backend se returned chunk count
   const [chunkCounts, setChunkCounts] = useState<
     Record<string, number>
   >({});
 
-  // Chat state
+  // -----------------------------------
+  // CHAT STATE
+  // -----------------------------------
+
+  // User ka question
   const [question, setQuestion] = useState("");
+
+  // AI answer
   const [answer, setAnswer] = useState("");
 
-  // Sources returned by backend
+  // Retrieved sources
   const [sources, setSources] = useState<
     {
       source_file: string;
@@ -31,7 +42,7 @@ function App() {
     }[]
   >([]);
 
-  // Loading state
+  // AI response loading state
   const [isAsking, setIsAsking] = useState(false);
 
   // -----------------------------------
@@ -49,12 +60,19 @@ function App() {
   const handleFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const files = Array.from(event.target.files ?? []);
+    const files = Array.from(
+      event.target.files ?? []
+    );
 
-    setSelectedFiles(files);
+    // Add newly selected files to existing files
+    setSelectedFiles((previous) => [
+      ...previous,
+      ...files,
+    ]);
 
+    // Process each file
     for (const file of files) {
-      // Uploading state
+      // Show uploading state
       setUploadStatus((previous) => ({
         ...previous,
         [file.name]: "uploading",
@@ -65,6 +83,7 @@ function App() {
       formData.append("file", file);
 
       try {
+        // Send file to FastAPI
         const response = await fetch(
           "http://127.0.0.1:8000/upload",
           {
@@ -82,7 +101,10 @@ function App() {
           );
         }
 
-        console.log("Backend response:", data);
+        console.log(
+          "Backend upload response:",
+          data
+        );
 
         // Save actual chunk count
         setChunkCounts((previous) => ({
@@ -96,7 +118,10 @@ function App() {
           [file.name]: "ready",
         }));
       } catch (error) {
-        console.error("Upload failed:", error);
+        console.error(
+          "Upload failed:",
+          error
+        );
 
         // Failed state
         setUploadStatus((previous) => ({
@@ -105,6 +130,9 @@ function App() {
         }));
       }
     }
+
+    // Allow selecting the same file again
+    event.target.value = "";
   };
 
   // -----------------------------------
@@ -112,21 +140,23 @@ function App() {
   // -----------------------------------
 
   const handleAsk = async () => {
-    const trimmedQuestion = question.trim();
+    const trimmedQuestion =
+      question.trim();
 
-    // Empty question ko send nahi karna
+    // Don't send empty questions
     if (!trimmedQuestion) {
       return;
     }
 
-    // Loading start
+    // Start loading
     setIsAsking(true);
 
-    // Purana answer clear
+    // Clear previous response
     setAnswer("");
     setSources([]);
 
     try {
+      // Call FastAPI /ask
       const response = await fetch(
         "http://127.0.0.1:8000/ask",
         {
@@ -151,24 +181,43 @@ function App() {
         );
       }
 
-      console.log("Ask response:", data);
+      console.log(
+        "Ask response:",
+        data
+      );
 
-      // Actual AI answer
+      // Save AI answer
       setAnswer(data.answer || "");
 
-      // Actual sources
+      // Save retrieved sources
       setSources(data.sources || []);
     } catch (error) {
-      console.error("Ask failed:", error);
+      console.error(
+        "Ask failed:",
+        error
+      );
 
       setAnswer(
         "Sorry, I couldn't process that question right now."
       );
     } finally {
-      // Loading stop
+      // Stop loading
       setIsAsking(false);
     }
   };
+
+  // -----------------------------------
+  // REMOVE DUPLICATE SOURCES
+  // -----------------------------------
+
+  const uniqueSources = Array.from(
+    new Map(
+      sources.map((source) => [
+        `${source.source_file}-${source.page_number}-${source.content_type}`,
+        source,
+      ])
+    ).values()
+  );
 
   // -----------------------------------
   // UI
@@ -176,17 +225,29 @@ function App() {
 
   return (
     <div className="app">
-      {/* Sidebar */}
+
+      {/* =================================
+          SIDEBAR
+      ================================= */}
+
       <aside className="sidebar">
+
+        {/* Brand */}
         <div className="brand">
-          <div className="brand-logo">✦</div>
+
+          <div className="brand-logo">
+            ✦
+          </div>
 
           <div className="brand-name">
             DocuMind <span>AI</span>
           </div>
+
         </div>
 
+        {/* Navigation */}
         <nav className="navigation">
+
           <button className="nav-item active">
             <span>⌂</span>
             Workspace
@@ -201,37 +262,61 @@ function App() {
             <span>◌</span>
             Chat History
           </button>
+
         </nav>
 
+        {/* Recent */}
         <div className="section-label">
           RECENT
         </div>
 
         <div className="recent-list">
-          <div>IoT Architecture Notes</div>
-          <div>Machine Learning Basics</div>
-          <div>Research Paper — RAG</div>
-        </div>
+          <div>
+            IoT Architecture Notes
+          </div>
 
-        <div className="sidebar-bottom">
-          <div className="system-status">
-            <span className="status-dot"></span>
-            RAG engine ready
+          <div>
+            Machine Learning Basics
+          </div>
+
+          <div>
+            Research Paper — RAG
           </div>
         </div>
+
+        {/* System status */}
+        <div className="sidebar-bottom">
+
+          <div className="system-status">
+
+            <span className="status-dot"></span>
+
+            RAG engine ready
+
+          </div>
+
+        </div>
+
       </aside>
 
-      {/* Main */}
+      {/* =================================
+          MAIN
+      ================================= */}
+
       <main className="main">
 
         {/* Top bar */}
         <header className="topbar">
+
           <div className="breadcrumb">
             Workspace /{" "}
-            <strong>Multimodal RAG</strong>
+            <strong>
+              Multimodal RAG
+            </strong>
           </div>
 
           <div className="topbar-actions">
+
             <button className="icon-button">
               ☼
             </button>
@@ -239,32 +324,43 @@ function App() {
             <button className="icon-button">
               ⚙
             </button>
+
           </div>
+
         </header>
 
         {/* Workspace */}
         <section className="workspace">
 
-          {/* Hero */}
+          {/* =================================
+              HERO
+          ================================= */}
+
           <div className="hero">
 
             <div>
+
               <div className="eyebrow">
-                MULTIMODAL DOCUMENT INTELLIGENCE
+                MULTIMODAL DOCUMENT
+                INTELLIGENCE
               </div>
 
               <h1>
                 Understand your documents.
                 <br />
-                <span>Ask anything.</span>
+                <span>
+                  Ask anything.
+                </span>
               </h1>
 
               <p>
-                Upload PDFs, DOCX files, images and
-                reports. Ask questions naturally and
-                get grounded answers with document
-                sources.
+                Upload PDFs, DOCX files,
+                images and reports. Ask
+                questions naturally and
+                get grounded answers with
+                document sources.
               </p>
+
             </div>
 
             <div className="tech-badge">
@@ -273,7 +369,10 @@ function App() {
 
           </div>
 
-          {/* Upload */}
+          {/* =================================
+              UPLOAD AREA
+          ================================= */}
+
           <div className="upload-card">
 
             <div className="upload-icon">
@@ -281,6 +380,7 @@ function App() {
             </div>
 
             <div className="upload-content">
+
               <h3>
                 Drop documents here
               </h3>
@@ -289,6 +389,7 @@ function App() {
                 PDF, DOCX, PNG or JPG ·
                 Multimodal extraction enabled
               </p>
+
             </div>
 
             {/* Hidden file input */}
@@ -298,7 +399,9 @@ function App() {
               multiple
               accept=".pdf,.docx,.png,.jpg,.jpeg"
               onChange={handleFileChange}
-              style={{ display: "none" }}
+              style={{
+                display: "none",
+              }}
             />
 
             {/* Choose files */}
@@ -311,76 +414,100 @@ function App() {
 
           </div>
 
-          {/* Selected files */}
+          {/* =================================
+              SELECTED FILES
+          ================================= */}
+
           {selectedFiles.length > 0 && (
             <div className="selected-files">
 
-              {selectedFiles.map((file) => (
-                <div
-                  className="selected-file"
-                  key={`${file.name}-${file.size}`}
-                >
+              {selectedFiles.map(
+                (file) => (
+                  <div
+                    className="selected-file"
+                    key={`${file.name}-${file.size}`}
+                  >
 
-                  <div>
-                    <strong>
-                      {file.name}
-                    </strong>
+                    <div>
 
-                    <span>
-                      {(
-                        file.size /
-                        1024 /
-                        1024
-                      ).toFixed(2)}{" "}
-                      MB
+                      <strong>
+                        {file.name}
+                      </strong>
 
-                      {chunkCounts[file.name] !==
-                        undefined &&
-                        ` · ${chunkCounts[file.name]} chunks`}
-                    </span>
+                      <span>
+
+                        {(
+                          file.size /
+                          1024 /
+                          1024
+                        ).toFixed(2)}{" "}
+                        MB
+
+                        {chunkCounts[
+                          file.name
+                        ] !== undefined &&
+                          ` · ${
+                            chunkCounts[
+                              file.name
+                            ]
+                          } chunks`}
+
+                      </span>
+
+                    </div>
+
+                    <div>
+
+                      {uploadStatus[
+                        file.name
+                      ] === "uploading" && (
+                        <span className="file-status uploading">
+                          Processing...
+                        </span>
+                      )}
+
+                      {uploadStatus[
+                        file.name
+                      ] === "ready" && (
+                        <span className="file-status ready-status">
+                          ✓ Ready
+                        </span>
+                      )}
+
+                      {uploadStatus[
+                        file.name
+                      ] === "failed" && (
+                        <span className="file-status failed">
+                          ✕ Failed
+                        </span>
+                      )}
+
+                    </div>
+
                   </div>
-
-                  <div>
-
-                    {uploadStatus[file.name] ===
-                      "uploading" && (
-                      <span className="file-status uploading">
-                        Processing...
-                      </span>
-                    )}
-
-                    {uploadStatus[file.name] ===
-                      "ready" && (
-                      <span className="file-status ready-status">
-                        ✓ Ready
-                      </span>
-                    )}
-
-                    {uploadStatus[file.name] ===
-                      "failed" && (
-                      <span className="file-status failed">
-                        ✕ Failed
-                      </span>
-                    )}
-
-                  </div>
-
-                </div>
-              ))}
+                )
+              )}
 
             </div>
           )}
 
-          {/* Main Grid */}
+          {/* =================================
+              MAIN GRID
+          ================================= */}
+
           <div className="content-grid">
 
-            {/* CHAT PANEL */}
+            {/* =================================
+                CHAT PANEL
+            ================================= */}
+
             <section className="panel chat-panel">
 
               {/* Chat header */}
               <div className="panel-header">
 
                 <div>
+
                   <div className="panel-title">
                     Ask your documents
                   </div>
@@ -389,12 +516,16 @@ function App() {
                     Grounded answers from your
                     indexed knowledge
                   </div>
+
                 </div>
 
                 <div className="source-count">
-                  {sources.length > 0
-                    ? `${sources.length} sources`
+
+                  {uniqueSources.length >
+                  0
+                    ? `${uniqueSources.length} sources`
                     : "RAG"}
+
                 </div>
 
               </div>
@@ -406,6 +537,7 @@ function App() {
                 {!question &&
                   !answer &&
                   !isAsking && (
+
                     <div className="empty-chat">
 
                       <div className="empty-chat-icon">
@@ -413,20 +545,24 @@ function App() {
                       </div>
 
                       <h3>
-                        Ask your documents anything
+                        Ask your documents
+                        anything
                       </h3>
 
                       <p>
-                        Ask a question and DocuMind
-                        will search your indexed
-                        documents for the answer.
+                        Ask a question and
+                        DocuMind will search
+                        your indexed documents
+                        for the answer.
                       </p>
 
                     </div>
-                  )}
+
+                )}
 
                 {/* User question */}
                 {question && (
+
                   <div className="message user-message">
 
                     <div className="message-bubble">
@@ -434,10 +570,12 @@ function App() {
                     </div>
 
                   </div>
+
                 )}
 
                 {/* Loading */}
                 {isAsking && (
+
                   <div className="message ai-message">
 
                     <div className="answer-label">
@@ -445,58 +583,84 @@ function App() {
                     </div>
 
                     <div className="message-bubble thinking">
+
                       Thinking over your
                       documents...
+
                       <span>
                         {" "}
                         ● ● ●
                       </span>
+
                     </div>
 
                   </div>
+
                 )}
 
-                {/* Real AI answer */}
-                {answer && !isAsking && (
-                  <div className="message ai-message">
+                {/* Actual AI answer */}
+                {answer &&
+                  !isAsking && (
 
-                    <div className="answer-label">
-                      AI ANSWER
-                    </div>
+                    <div className="message ai-message">
 
-                    <div className="message-bubble">
-                      {answer}
-                    </div>
+                      <div className="answer-label">
+                        AI ANSWER
+                      </div>
 
-                    {/* Sources */}
-                    {sources.length > 0 && (
-                      <div className="sources">
+                      {/* Markdown answer */}
+                      <div className="message-bubble markdown-answer">
 
-                        {sources.map(
-                          (source, index) => {
-
-                            const fileName =
-                              source.source_file
-                                .split(/[\\/]/)
-                                .pop() ||
-                              "Document";
-
-                            return (
-                              <button
-                                key={index}
-                              >
-                                📄{" "}
-                                {fileName} · p.
-                                {source.page_number}
-                              </button>
-                            );
-                          }
-                        )}
+                        <ReactMarkdown>
+                          {answer}
+                        </ReactMarkdown>
 
                       </div>
-                    )}
 
-                  </div>
+                      {/* Unique sources */}
+                      {uniqueSources.length >
+                        0 && (
+
+                        <div className="sources">
+
+                          {uniqueSources.map(
+                            (
+                              source,
+                              index
+                            ) => {
+
+                              const fileName =
+                                source.source_file
+                                  .split(
+                                    /[\\/]/
+                                  )
+                                  .pop() ||
+                                "Document";
+
+                              return (
+
+                                <button
+                                  key={index}
+                                >
+                                  📄{" "}
+                                  {fileName}
+                                  {" · p."}
+                                  {
+                                    source.page_number
+                                  }
+                                </button>
+
+                              );
+
+                            }
+                          )}
+
+                        </div>
+
+                      )}
+
+                    </div>
+
                 )}
 
               </div>
@@ -512,11 +676,14 @@ function App() {
                     );
                   }}
                   onKeyDown={(event) => {
+
                     if (
-                      event.key === "Enter"
+                      event.key ===
+                      "Enter"
                     ) {
                       handleAsk();
                     }
+
                   }}
                   placeholder="Ask a question about your documents..."
                   disabled={isAsking}
@@ -530,26 +697,34 @@ function App() {
                     !question.trim()
                   }
                 >
-                  {isAsking ? "..." : "➤"}
+                  {isAsking
+                    ? "..."
+                    : "➤"}
                 </button>
 
               </div>
 
             </section>
 
-            {/* DOCUMENTS PANEL */}
+            {/* =================================
+                DOCUMENTS PANEL
+            ================================= */}
+
             <section className="panel documents-panel">
 
+              {/* Header */}
               <div className="panel-header">
 
                 <div>
+
                   <div className="panel-title">
                     Your documents
                   </div>
 
                   <div className="panel-subtitle">
-                    3 indexed
+                    {selectedFiles.length} indexed
                   </div>
+
                 </div>
 
                 <span className="library-label">
@@ -558,84 +733,141 @@ function App() {
 
               </div>
 
-              {/* Documents */}
+              {/* Dynamic documents */}
               <div className="documents-list">
 
-                <div className="document">
+                {/* Empty state */}
+                {selectedFiles.length ===
+                  0 && (
 
-                  <div className="document-icon pdf">
-                    📕
-                  </div>
+                  <div className="empty-documents">
 
-                  <div className="document-info">
-
-                    <div className="document-name">
-                      IOT Notes_NM.pdf
+                    <div className="empty-documents-icon">
+                      ◫
                     </div>
 
-                    <div className="document-meta">
-                      PDF · 12 pages · 34 chunks
-                    </div>
+                    <p>
+                      No documents uploaded yet.
+                    </p>
+
+                    <span>
+                      Upload a PDF, DOCX or
+                      image to begin.
+                    </span>
 
                   </div>
 
-                  <div className="ready">
-                    ✓ Ready
-                  </div>
+                )}
 
-                </div>
+                {/* Uploaded documents */}
+                {selectedFiles.map(
+                  (file) => {
 
-                <div className="document">
+                    const extension =
+                      file.name
+                        .split(".")
+                        .pop()
+                        ?.toLowerCase();
 
-                  <div className="document-icon docx">
-                    📘
-                  </div>
+                    const isImage =
+                      extension === "png" ||
+                      extension === "jpg" ||
+                      extension === "jpeg";
 
-                  <div className="document-info">
+                    const isDocx =
+                      extension === "docx";
 
-                    <div className="document-name">
-                      Machine Learning Basics.docx
-                    </div>
+                    const icon = isImage
+                      ? "🖼️"
+                      : isDocx
+                      ? "📘"
+                      : "📕";
 
-                    <div className="document-meta">
-                      DOCX · 8 pages · 21 chunks
-                    </div>
+                    const fileType =
+                      extension?.toUpperCase() ||
+                      "FILE";
 
-                  </div>
+                    return (
 
-                  <div className="ready">
-                    ✓ Ready
-                  </div>
+                      <div
+                        className="document"
+                        key={`${file.name}-${file.size}`}
+                      >
 
-                </div>
+                        {/* File icon */}
+                        <div className="document-icon">
+                          {icon}
+                        </div>
 
-                <div className="document">
+                        {/* File info */}
+                        <div className="document-info">
 
-                  <div className="document-icon image">
-                    🖼️
-                  </div>
+                          <div className="document-name">
+                            {file.name}
+                          </div>
 
-                  <div className="document-info">
+                          <div className="document-meta">
 
-                    <div className="document-name">
-                      architecture.png
-                    </div>
+                            {fileType}
 
-                    <div className="document-meta">
-                      Image · Vision description
-                    </div>
+                            {" · "}
 
-                  </div>
+                            {(
+                              file.size /
+                              1024 /
+                              1024
+                            ).toFixed(2)}
 
-                  <div className="ready">
-                    ✓ Ready
-                  </div>
+                            {" MB"}
 
-                </div>
+                            {chunkCounts[
+                              file.name
+                            ] !== undefined &&
+                              ` · ${
+                                chunkCounts[
+                                  file.name
+                                ]
+                              } chunks`}
+
+                          </div>
+
+                        </div>
+
+                        {/* Status */}
+                        <div className="ready">
+
+                          {uploadStatus[
+                            file.name
+                          ] ===
+                            "uploading" &&
+                            "Processing..."}
+
+                          {uploadStatus[
+                            file.name
+                          ] ===
+                            "ready" &&
+                            "✓ Ready"}
+
+                          {uploadStatus[
+                            file.name
+                          ] ===
+                            "failed" &&
+                            "✕ Failed"}
+
+                        </div>
+
+                      </div>
+
+                    );
+                  }
+                )}
 
               </div>
 
-              {/* Retrieval pipeline */}
+              {/* =================================
+                  RETRIEVAL PIPELINE
+              ================================= */}
+
               <div className="retrieval">
 
                 <div className="panel-title">
@@ -649,24 +881,37 @@ function App() {
                 <div className="pipeline">
 
                   <div className="pipeline-step">
+
                     <div>✓</div>
+
                     Query embedding created
+
                   </div>
 
                   <div className="pipeline-step">
+
                     <div>✓</div>
+
                     Similar chunks retrieved
+
                   </div>
 
                   <div className="pipeline-step">
+
                     <div>✓</div>
-                    Text + tables + image context
+
+                    Text + tables + image
+                    context
+
                   </div>
 
                   <div className="pipeline-step">
+
                     <div>✓</div>
+
                     Gemini generates grounded
                     answer
+
                   </div>
 
                 </div>
@@ -677,13 +922,16 @@ function App() {
 
           </div>
 
+          {/* Footer */}
           <div className="footer-note">
-            Multimodal RAG · AI-powered document
-            intelligence
+            Multimodal RAG · AI-powered
+            document intelligence
           </div>
 
         </section>
+
       </main>
+
     </div>
   );
 }
